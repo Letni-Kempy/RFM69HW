@@ -23,6 +23,12 @@ RH_RF69 rf69(RFM69_CS, RFM69_INT);
 // Creates an LCD object. Parameters: (rs, enable, d4, d5, d6, d7)
 LiquidCrystal lcd(5, 6, 7, 8, 9, 10);
 
+//movingAverage()
+const int numReadings = 10;
+int readings[numReadings];
+int readIndex = 0;  
+long total = -1000; //sum of readings array
+
 void setup() {
   Serial.begin(115200);
   //while (!Serial) delay(1); // Wait for Serial Console (comment out line if no computer)
@@ -68,6 +74,14 @@ void setup() {
 
 	// Clears the LCD screen
 	lcd.clear();
+
+  //fill the array for moving average with -100 dBm
+  for (int i = 0; i < numReadings; i++) {
+    readings[i] = -100; 
+  }
+
+
+
 }
 
 void loop() {
@@ -83,15 +97,30 @@ void loop() {
       Serial.print("]: ");
       Serial.println((char*)buf);
       Serial.print("RSSI: ");
-      Serial.println(rf69.lastRssi(), DEC);
+      Serial.println(movingAverage(rf69.lastRssi()), DEC);
       //lcd.clear();
       lcd.setCursor(0,0);
       lcd.print((char*)buf);
       lcd.setCursor(0,1);
-      lcd.print(rf69.lastRssi(), DEC);
+      lcd.print(movingAverage(rf69.lastRssi()), DEC);
 
     } else {
       Serial.println("Receive failed");
     }
   }
+}
+
+int movingAverage(int input_val) {
+  total = total - readings[readIndex];
+  total = total + input_val;
+
+  readings[readIndex] = input_val;
+
+  readIndex++;
+  if (readIndex >= numReadings) {
+    readIndex = 0; 
+  }
+
+  int average = total / numReadings;
+  return average; 
 }
