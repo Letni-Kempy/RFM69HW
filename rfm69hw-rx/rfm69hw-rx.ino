@@ -1,13 +1,3 @@
-// rf69 demo tx rx.pde
-// -*- mode: C++ -*-
-// Example sketch showing how to create a simple messaging client
-// with the RH_RF69 class. RH_RF69 class does not provide for addressing
-// or reliability, so you should only use RH_RF69 if you do not need the
-// higher level messaging abilities.
-// It is designed to work with the other example RadioHead69_RawDemo_TX.
-// Demonstrates the use of AES encryption, setting the frequency and
-// modem configuration.
-
 #include <SPI.h>
 #include <RH_RF69.h>
 
@@ -28,23 +18,6 @@
 //  #define RFM69_RST  16  // "D"
 //  #define LED         0
 
-
-
-/* Teensy 3.x w/wing
-#define RFM69_CS     10  // "B"
-#define RFM69_INT     4  // "C"
-#define RFM69_RST     9  // "A"
-#define RFM69_IRQN   digitalPinToInterrupt(RFM69_INT)
-*/
-
-/* WICED Feather w/wing
-#define RFM69_CS     PB4  // "B"
-#define RFM69_INT    PA15 // "C"
-#define RFM69_RST    PA4  // "A"
-#define RFM69_IRQN   RFM69_INT
-*/
-
-// Singleton instance of the radio driver
 RH_RF69 rf69(RFM69_CS, RFM69_INT);
 
 // Creates an LCD object. Parameters: (rs, enable, d4, d5, d6, d7)
@@ -117,14 +90,5 @@ void loop() {
     } else {
       Serial.println("Receive failed");
     }
-  }
-}
-
-void Blink(byte pin, byte delay_ms, byte loops) {
-  while (loops--) {
-    digitalWrite(pin, HIGH);
-    delay(delay_ms);
-    digitalWrite(pin, LOW);
-    delay(delay_ms);
   }
 }

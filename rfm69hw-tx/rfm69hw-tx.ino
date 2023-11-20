@@ -1,13 +1,3 @@
-// rf69 demo tx rx.pde
-// -*- mode: C++ -*-
-// Example sketch showing how to create a simple messaging client
-// with the RH_RF69 class. RH_RF69 class does not provide for addressing
-// or reliability, so you should only use RH_RF69 if you do not need the
-// higher level messaging abilities.
-// It is designed to work with the other example RadioHead69_RawDemo_TX.
-// Demonstrates the use of AES encryption, setting the frequency and
-// modem configuration.
-
 #include <SPI.h>
 #include <RH_RF69.h>
 
@@ -15,39 +5,19 @@
 
 // Change to 434.0 or other frequency, must match RX's freq!
 #define RF69_FREQ 433.0
-
-
-
-
 #define RFM69_CS    4  //
 #define RFM69_INT   3  //
 #define RFM69_RST   2  // "A"
 #define LED        13
 
-//#elif defined(ESP8266)  // ESP8266 feather w/wing
+// ESP8266 feather w/wing
 //  #define RFM69_CS    2  // "E"
 //  #define RFM69_INT  15  // "B"
 //  #define RFM69_RST  16  // "D"
 //  #define LED         0
 
-
-
-/* Teensy 3.x w/wing
-#define RFM69_CS     10  // "B"
-#define RFM69_INT     4  // "C"
-#define RFM69_RST     9  // "A"
-#define RFM69_IRQN   digitalPinToInterrupt(RFM69_INT)
-*/
-
-/* WICED Feather w/wing
-#define RFM69_CS     PB4  // "B"
-#define RFM69_INT    PA15 // "C"
-#define RFM69_RST    PA4  // "A"
-#define RFM69_IRQN   RFM69_INT
-*/
-
-// Singleton instance of the radio driver
 RH_RF69 rf69(RFM69_CS, RFM69_INT);
+int16_t packetnum = 0;  // packet counter, we increment per xmission
 
 void setup() {
   Serial.begin(115200);
@@ -57,7 +27,7 @@ void setup() {
   pinMode(RFM69_RST, OUTPUT);
   digitalWrite(RFM69_RST, LOW);
 
-  Serial.println("Feather RFM69 RX Test!");
+  Serial.println("RFM69 TX Test!");
   Serial.println();
 
   // manual reset
@@ -91,39 +61,13 @@ void setup() {
 }
 
 void loop() {
- if (rf69.available()) {
-    // Should be a message for us now
-    uint8_t buf[RH_RF69_MAX_MESSAGE_LEN];
-    uint8_t len = sizeof(buf);
-    if (rf69.recv(buf, &len)) {
-      if (!len) return;
-      buf[len] = 0;
-      Serial.print("Received [");
-      Serial.print(len);
-      Serial.print("]: ");
-      Serial.println((char*)buf);
-      Serial.print("RSSI: ");
-      Serial.println(rf69.lastRssi(), DEC);
+  delay(1000);  // Wait 1 second between transmits, could also 'sleep' here!
 
-      if (strstr((char *)buf, "Hello World")) {
-        // Send a reply!
-        uint8_t data[] = "And hello back to you";
-        rf69.send(data, sizeof(data));
-        rf69.waitPacketSent();
-        Serial.println("Sent a reply");
-        Blink(LED, 40, 3); // blink LED 3 times, 40ms between blinks
-      }
-    } else {
-      Serial.println("Receive failed");
-    }
-  }
-}
+  char radiopacket[20] = "Hello World #";
+  itoa(packetnum++, radiopacket+13, 10);
+  Serial.print("Sending "); Serial.println(radiopacket);
 
-void Blink(byte pin, byte delay_ms, byte loops) {
-  while (loops--) {
-    digitalWrite(pin, HIGH);
-    delay(delay_ms);
-    digitalWrite(pin, LOW);
-    delay(delay_ms);
-  }
+  // Send a message!
+  rf69.send((uint8_t *)radiopacket, strlen(radiopacket));
+  rf69.waitPacketSent();
 }
