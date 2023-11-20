@@ -61,7 +61,7 @@ void setup() {
 }
 
 void loop() {
-  delay(1000);  // Wait 1 second between transmits, could also 'sleep' here!
+  delay(100);  // Wait 1 second between transmits, could also 'sleep' here!
 
   char radiopacket[20] = "Hello World #";
   itoa(packetnum++, radiopacket+13, 10);

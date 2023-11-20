@@ -84,8 +84,11 @@ void loop() {
       Serial.println((char*)buf);
       Serial.print("RSSI: ");
       Serial.println(rf69.lastRssi(), DEC);
-      lcd.clear();
-      lcd.println(rf69.lastRssi(), DEC);
+      //lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print((char*)buf);
+      lcd.setCursor(0,1);
+      lcd.print(rf69.lastRssi(), DEC);
 
     } else {
       Serial.println("Receive failed");
