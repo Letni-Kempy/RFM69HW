@@ -6,10 +6,10 @@
 
 // Change to 434.0 or other frequency, must match RX's freq!
 #define RF69_FREQ 433.0
-
+#define PIEZO_PIN 2
 #define RFM69_CS    4  //
 #define RFM69_INT   3  //
-#define RFM69_RST   2  // "A"
+#define RFM69_RST   A0  // "A"
 #define LED        13
 
 //#elif defined(ESP8266)  // ESP8266 feather w/wing
@@ -29,10 +29,20 @@ int readings[numReadings];
 int readIndex = 0;  
 long total = -1000; //sum of readings array
 
+double signalNorm;
+int geiger[5] = {300, 500 , 2500, 3000, -40};
+//geigerSet[2][4] = {{fastest irregular interval, fast beep limit, slow beep limit, end of rng band(affects probability distribution), max signal strength[dBm]} , {repeat for far signal}}
+int geigerSet[2][5] = {{5, 10, 20, 25, -40}, {300, 500, 2500, 3000, -100}}; 
+//define the linear functions between the two extreme beeping speeds
+double geigerSlope[5];
+int randNumber = random(11, geiger[3]); // Generate a random number in the interval [50, 500]
+
+unsigned long previousMillis = 0;
+unsigned long interval = 0;
+
 void setup() {
   Serial.begin(115200);
   //while (!Serial) delay(1); // Wait for Serial Console (comment out line if no computer)
-
   pinMode(LED, OUTPUT);
   pinMode(RFM69_RST, OUTPUT);
   digitalWrite(RFM69_RST, LOW);
@@ -80,7 +90,17 @@ void setup() {
     readings[i] = -100; 
   }
 
+  //buzzer
+  pinMode(PIEZO_PIN, OUTPUT);
+  randomSeed(analogRead(0)); // Seed the random number generator
 
+  // Calculate geigerSlope values
+  geigerSlope[4] = geigerSet[0][4]  - geigerSet[1][4];
+  geigerSlope[0] = (geigerSet[0][0] - geigerSet[1][0])/geigerSlope[4];
+  geigerSlope[1] = (geigerSet[0][1] - geigerSet[1][1])/geigerSlope[4];
+  geigerSlope[2] = (geigerSet[0][2] - geigerSet[1][2])/geigerSlope[4];
+  geigerSlope[3] = (geigerSet[0][3] - geigerSet[1][3])/geigerSlope[4];
+  
 
 }
 
@@ -92,22 +112,23 @@ void loop() {
     if (rf69.recv(buf, &len)) {
       if (!len) return;
       buf[len] = 0;
+      geiger[4] = movingAverage(rf69.lastRssi());
       Serial.print("Received [");
       Serial.print(len);
       Serial.print("]: ");
       Serial.println((char*)buf);
-      Serial.print("RSSI: ");
-      Serial.println(movingAverage(rf69.lastRssi()), DEC);
-      //lcd.clear();
+      Serial.print(geiger[4], DEC);
+       //lcd.clear();
       lcd.setCursor(0,0);
       lcd.print((char*)buf);
       lcd.setCursor(0,1);
-      lcd.print(movingAverage(rf69.lastRssi()), DEC);
-
+      lcd.print(geiger[4], DEC);
     } else {
       Serial.println("Receive failed");
+      geiger[4] = geigerSet[1][4]; //set to lowest value
     }
   }
+  buzzer();
 }
 
 int movingAverage(int input_val) {
@@ -123,4 +144,44 @@ int movingAverage(int input_val) {
 
   int average = total / numReadings;
   return average; 
+}
+
+void buzzer() {
+  if (millis() - previousMillis >= interval) {
+
+    //limit the signal values if they go out of defined bounds
+    if (geiger[4] < geigerSet[1][4]) {
+      geiger[4] = geigerSet[1][4];
+    } else if (geiger[4] > geigerSet[0][4]) {
+      geiger[4] = geigerSet[0][4];
+    }
+    signalNorm = geiger[4] - geigerSet[1][4];
+    geiger[3] = (geigerSlope[3])*signalNorm + geigerSet[1][3];
+    geiger[2] = (geigerSlope[2])*signalNorm + geigerSet[1][2];
+    geiger[1] = (geigerSlope[1])*signalNorm + geigerSet[1][1];
+    geiger[0] = (geigerSlope[0])*signalNorm + geigerSet[1][0]; 
+    randNumber = random(1, geiger[3]); // Generate a random number in the interval [50, 500]
+
+    // Ensure the random number is within the desired range [100, 300]   TADY MODIFIKOVAT INTERVALY SNIŽOVAT ESLE IF Z 800 NA 300 TŘEBA
+    if (randNumber > geiger[0] && randNumber < geiger[1]) {
+      randNumber = geiger[1];
+    } else if (randNumber > geiger[2]) {
+      randNumber = geiger[2];
+    }
+
+    if (randNumber <= geiger[0]) {
+    // Play a click sound
+      tone(PIEZO_PIN, 510); // Adjust the frequency as needed
+      delay(10);
+      noTone(PIEZO_PIN);                 //TENHLE ZVUK MI PŘIJDE NEJMÍŇ OTRAVNEJ
+    } else {
+      tone(PIEZO_PIN, 500); // Adjust the frequency as needed
+      delay(10);
+      noTone(PIEZO_PIN);                  //TENHLE ZVUK MI PŘIJDE NEJMÍŇ OTRAVNEJ
+    }
+  
+    previousMillis = millis();
+    interval = randNumber;
+  }
+   
 }
