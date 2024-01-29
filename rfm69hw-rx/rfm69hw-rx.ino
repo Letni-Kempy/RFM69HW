@@ -146,7 +146,7 @@ int movingAverage(int input_val) {
   return average; 
 }
 
-void buzzer() {
+void buzzer() { //
   if (millis() - previousMillis >= interval) {
 
     //limit the signal values if they go out of defined bounds
@@ -162,7 +162,7 @@ void buzzer() {
     geiger[0] = (geigerSlope[0])*signalNorm + geigerSet[1][0]; 
     randNumber = random(1, geiger[3]); // Generate a random number in the interval [50, 500]
 
-    // Ensure the random number is within the desired range [100, 300]   TADY MODIFIKOVAT INTERVALY SNIŽOVAT ESLE IF Z 800 NA 300 TŘEBA
+    // Ensure the random number is within the desired range [100, 300]   TADY MODIFIKOVAT INTERVALY SNIŽOVAT ELSE IF Z 800 NA 300 TŘEBA
     if (randNumber > geiger[0] && randNumber < geiger[1]) {
       randNumber = geiger[1];
     } else if (randNumber > geiger[2]) {
