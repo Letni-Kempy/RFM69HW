@@ -105,6 +105,11 @@ void setup() {
 }
 
 void loop() {
+  geigerRF();
+  buzzer();
+}
+
+void geigerRF() {
  if (rf69.available()) {
     // Should be a message for us now
     uint8_t buf[RH_RF69_MAX_MESSAGE_LEN];
@@ -128,7 +133,6 @@ void loop() {
       geiger[4] = geigerSet[1][4]; //set to lowest value
     }
   }
-  buzzer();
 }
 
 int movingAverage(int input_val) {
