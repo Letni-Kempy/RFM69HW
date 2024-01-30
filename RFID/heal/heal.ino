@@ -4,7 +4,7 @@
 /*Using Hardware SPI of Arduino */
 /*MOSI (11), MISO (12) and SCK (13) are fixed */
 /*You can configure SS and RST Pins*/
-#define SS_PIN 53  /* Slave Select Pin */
+#define SS_PIN 10  /* Slave Select Pin */
 #define RST_PIN 5  /* Reset Pin */
 
 /* Create an instance of MFRC522 */

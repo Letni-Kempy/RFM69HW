@@ -41,7 +41,7 @@ unsigned long intervalDecay = 200;
 /*Using Hardware SPI of Arduino */
 /*MOSI (11), MISO (12) and SCK (13) are fixed */
 /*You can configure SS and RST Pins*/
-#define SS_PIN 53 /* Slave Select Pin */
+#define SS_PIN 10 /* Slave Select Pin */
 #define RST_PIN 5 /* Reset Pin */
 /* Create an instance of MFRC522 */
 MFRC522 mfrc522(SS_PIN, RST_PIN);
@@ -54,7 +54,6 @@ int HP = 100;
 byte bufferLen = 18;
 /* Length of buffer should be 2 Bytes more than the size of Block (16 Bytes) */
 MFRC522::StatusCode status;
-unsigned long previousMillisRFID = 0;
 
 void setup() {
   /* Initialize serial communications with the PC */
@@ -129,7 +128,7 @@ void loop() {
   //check signal strength
   geigerRF();
   //HP loss first three values define sig strength breakpoints, last four values how many seconds to go form 100 to 0 HP at that signal value
-  if (millis() - previousMillisDecay >= 1000) {
+  if (millis() - previousMillisDecay >= intervalDecay) {
     healthDecay(-45,-60,-80,60,120,1200,7200);
   previousMillisDecay = millis();
   }
@@ -137,10 +136,7 @@ void loop() {
   buzzer();
 
   //check for RFID tags and resolve them
-  if (millis() - previousMillisRFID >= 1000) {
-    geigerRFID();
-    previousMillisRFID = millis();
-  }
+  geigerRFID();
 }
 
 void healthDecay(int critical, int unsafe, int safe, int minimum, int critVal, int unsVal, int safeVal) {
