@@ -7,7 +7,7 @@
 // Change to 434.0 or other frequency, must match RX's freq!
 #define RF69_FREQ 433.0
 #define PIEZO_PIN 2
-#define RFM69_CS    4  //
+#define RFM69_SS    9  //slave select - NSS
 #define RFM69_INT   3  //
 #define RFM69_RST   A0  // "A"
 #define LED        13
@@ -18,10 +18,10 @@
 //  #define RFM69_RST  16  // "D"
 //  #define LED         0
 
-RH_RF69 rf69(RFM69_CS, RFM69_INT);
+RH_RF69 rf69(RFM69_SS, RFM69_INT);
 
 // Creates an LCD object. Parameters: (rs, enable, d4, d5, d6, d7)
-LiquidCrystal lcd(5, 6, 7, 8, 9, 10);
+//LiquidCrystal lcd(5, 6, 7, 8, 9, 10);
 
 //movingAverage()
 const int numReadings = 10;
@@ -80,10 +80,10 @@ void setup() {
   Serial.print("RFM69 radio @");  Serial.print((int)RF69_FREQ);  Serial.println(" MHz");
 
   // set up the LCD's number of columns and rows:
-	lcd.begin(16, 2);
+	//lcd.begin(16, 2);
 
 	// Clears the LCD screen
-	lcd.clear();
+	//lcd.clear();
 
   //fill the array for moving average with -100 dBm
   for (int i = 0; i < numReadings; i++) {
@@ -123,11 +123,11 @@ void geigerRF() {
       Serial.print("]: ");
       Serial.println((char*)buf);
       Serial.print(geiger[4], DEC);
-       //lcd.clear();
+      /* //lcd.clear();
       lcd.setCursor(0,0);
       lcd.print((char*)buf);
       lcd.setCursor(0,1);
-      lcd.print(geiger[4], DEC);
+      lcd.print(geiger[4], DEC); */
     } else {
       Serial.println("Receive failed");
       geiger[4] = geigerSet[1][4]; //set to lowest value

@@ -7,12 +7,12 @@
 // Change to 434.0 or other frequency, must match RX's freq!
 #define RF69_FREQ 433.0
 #define PIEZO_PIN 2
-#define RFM69_CS    4  //
+#define RFM69_SS    9  //slave select - NSS
 #define RFM69_INT   3  //
 #define RFM69_RST   A0  // "A"
 #define LED        13
 
-RH_RF69 rf69(RFM69_CS, RFM69_INT);
+RH_RF69 rf69(RFM69_SS, RFM69_INT);
 
 //movingAverage()
 const int numReadings = 10;
@@ -42,7 +42,7 @@ unsigned long intervalDecay = 200;
 /*MOSI (11), MISO (12) and SCK (13) are fixed */
 /*You can configure SS and RST Pins*/
 #define SS_PIN 10 /* Slave Select Pin */
-#define RST_PIN 5 /* Reset Pin */
+#define RST_PIN 4 /* Reset Pin */
 /* Create an instance of MFRC522 */
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 /* Create an instance of MIFARE_Key */
@@ -54,6 +54,8 @@ int HP = 100;
 byte bufferLen = 18;
 /* Length of buffer should be 2 Bytes more than the size of Block (16 Bytes) */
 MFRC522::StatusCode status;
+
+unsigned long previousMillisRFID = 0;
 
 void setup() {
   /* Initialize serial communications with the PC */
@@ -137,6 +139,19 @@ void loop() {
 
   //check for RFID tags and resolve them
   geigerRFID();
+
+  if (millis() - previousMillisRFID >= 10000) {
+    digitalWrite(RST_PIN, LOW);
+    // manual reset
+    digitalWrite(RST_PIN, HIGH);
+    delay(10);
+    digitalWrite(RST_PIN, LOW);
+    delay(10);
+    mfrc522.PCD_Init();
+    Serial.println("reset");
+      
+    previousMillisRFID = millis();
+  }
 }
 
 void healthDecay(int critical, int unsafe, int safe, int minimum, int critVal, int unsVal, int safeVal) {
@@ -160,9 +175,10 @@ void healthDecay(int critical, int unsafe, int safe, int minimum, int critVal, i
     decayTicker = decayTicker + decaySlope[2]*(geiger[4] - unsVal) + (safeVal / unsVal) ;
   }
 
-  if(decayTicker > safeVal*(1000 / intervalDecay) ){
+  if(decayTicker > safeVal*(1000 / intervalDecay)/100 ){
     HP--;
     Serial.print("Lost 1 HP, currently at: ");  Serial.print((int)HP);  Serial.println(" HP total");
+    decayTicker = 0;
   }
 }
 
