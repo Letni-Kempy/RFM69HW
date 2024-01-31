@@ -6,32 +6,35 @@
 
 // Change to 434.0 or other frequency, must match RX's freq!
 #define RF69_FREQ 433.0
-#define PIEZO_PIN 2
-#define RFM69_SS    9  //slave select - NSS
-#define RFM69_INT   3  //
-#define RFM69_RST   A0  // "A"
-#define LED        13
+#define PIEZO_PIN 2   //buzzer pin
+#define RFM69_SS 9    //slave select - NSS
+#define RFM69_INT 3   //interrupt pin
+#define RFM69_RST A0  // "A" reset, set to analog to preserve DIO pins
+#define LED 13
+//SCK to pin D13
+//MISO to pin D12
+//MOSI to pin D11
 
 RH_RF69 rf69(RFM69_SS, RFM69_INT);
 
 //movingAverage()
 const int numReadings = 10;
 int readings[numReadings];
-int readIndex = 0;  
-long total = -1000; //sum of readings array
+int readIndex = 0;
+long total = -1000;  //sum of readings array
 
 double signalNorm;
-int geiger[5] = {300, 500 , 2500, 3000, -40};
+int geiger[5] = { 300, 500, 2500, 3000, -40 };
 //geigerSet[2][4] = {{fastest irregular interval, fast beep limit, slow beep limit, end of rng band(affects probability distribution), max signal strength[dBm]} , {repeat for far signal}}
-int geigerSet[2][5] = {{5, 10, 20, 25, -40}, {300, 500, 2500, 3000, -100}}; 
+int geigerSet[2][5] = { { 5, 10, 20, 25, -40 }, { 300, 500, 2500, 3000, -100 } };
 //define the linear functions between the two extreme beeping speeds
 double geigerSlope[5];
-int randNumber = random(11, geiger[3]); // Generate a random number in the interval [50, 500]
+int randNumber = random(11, geiger[3]);  // Generate a random number in the interval [50, 500]
 
 unsigned long previousMillisRF = 0;
 unsigned long intervalRF = 0;
 
-double decaySlope[3]; //health decay parameters
+double decaySlope[3];  //health decay parameters
 int decayTicker;
 unsigned long previousMillisDecay = 0;
 unsigned long intervalDecay = 200;
@@ -43,19 +46,25 @@ unsigned long intervalDecay = 200;
 /*You can configure SS and RST Pins*/
 #define SS_PIN 10 /* Slave Select Pin */
 #define RST_PIN 4 /* Reset Pin */
+//SCK to pin D13
+//MISO to pin D12
+//MOSI to pin D11
+
 /* Create an instance of MFRC522 */
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 /* Create an instance of MIFARE_Key */
 MFRC522::MIFARE_Key key;
 // {LARP, 0x01 = healing item, 0x14 = 20 hp}
 byte header[4] = { 0x4C, 0x41, 0x52, 0x50 };  //checks against this header to identify LARP-related RFIDs
-int healAmount = 0;
-int HP = 100;
 byte bufferLen = 18;
 /* Length of buffer should be 2 Bytes more than the size of Block (16 Bytes) */
 MFRC522::StatusCode status;
 
 unsigned long previousMillisRFID = 0;
+
+int healAmount = 0;
+int HP = 100;
+bool alive = true;
 
 void setup() {
   /* Initialize serial communications with the PC */
@@ -76,7 +85,8 @@ void setup() {
 
   if (!rf69.init()) {
     Serial.println("RFM69 radio init failed");
-    while (1);
+    while (1)
+      ;
   }
   Serial.println("RFM69 radio init OK!");
 
@@ -92,27 +102,29 @@ void setup() {
 
   // The encryption key has to be the same as the one in the server
   uint8_t keyRF[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-                    0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+                      0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
   rf69.setEncryptionKey(keyRF);
 
-  Serial.print("RFM69 radio @");  Serial.print((int)RF69_FREQ);  Serial.println(" MHz");
+  Serial.print("RFM69 radio @");
+  Serial.print((int)RF69_FREQ);
+  Serial.println(" MHz");
 
   //fill the array for moving average with -100 dBm
   for (int i = 0; i < numReadings; i++) {
-    readings[i] = -100; 
+    readings[i] = -100;
   }
 
   //buzzer
   pinMode(PIEZO_PIN, OUTPUT);
-  randomSeed(analogRead(0)); // Seed the random number generator
+  randomSeed(analogRead(0));  // Seed the random number generator
 
   // Calculate geigerSlope values
-  geigerSlope[4] = geigerSet[0][4]  - geigerSet[1][4];
-  geigerSlope[0] = (geigerSet[0][0] - geigerSet[1][0])/geigerSlope[4];
-  geigerSlope[1] = (geigerSet[0][1] - geigerSet[1][1])/geigerSlope[4];
-  geigerSlope[2] = (geigerSet[0][2] - geigerSet[1][2])/geigerSlope[4];
-  geigerSlope[3] = (geigerSet[0][3] - geigerSet[1][3])/geigerSlope[4];
-  
+  geigerSlope[4] = geigerSet[0][4] - geigerSet[1][4];
+  geigerSlope[0] = (geigerSet[0][0] - geigerSet[1][0]) / geigerSlope[4];
+  geigerSlope[1] = (geigerSet[0][1] - geigerSet[1][1]) / geigerSlope[4];
+  geigerSlope[2] = (geigerSet[0][2] - geigerSet[1][2]) / geigerSlope[4];
+  geigerSlope[3] = (geigerSet[0][3] - geigerSet[1][3]) / geigerSlope[4];
+
 
 
   /*************** Initialize MFRC522 Module */
@@ -126,17 +138,17 @@ void setup() {
 }
 
 void loop() {
-
-  //check signal strength
-  geigerRF();
-  //HP loss first three values define sig strength breakpoints, last four values how many seconds to go form 100 to 0 HP at that signal value
-  if (millis() - previousMillisDecay >= intervalDecay) {
-    healthDecay(-45,-60,-80,60,120,1200,7200);
-  previousMillisDecay = millis();
+  if (alive) {
+    //check signal strength
+    geigerRF();
+    //HP loss first three values define sig strength breakpoints, last four values how many seconds to go form 100 to 0 HP at that signal value
+    if (millis() - previousMillisDecay >= intervalDecay) {
+      healthDecay(-45, -60, -80, 60, 120, 1200, 7200);
+      previousMillisDecay = millis();
+    }
+    //imitate geiger sounds
+    buzzer();
   }
-  //imitate geiger sounds
-  buzzer();
-
   //check for RFID tags and resolve them
   geigerRFID();
 
@@ -149,9 +161,11 @@ void loop() {
     delay(10);
     mfrc522.PCD_Init();
     Serial.println("reset");
-      
+
     previousMillisRFID = millis();
   }
+
+  checkIfDead();
 }
 
 void healthDecay(int critical, int unsafe, int safe, int minimum, int critVal, int unsVal, int safeVal) {
@@ -163,30 +177,39 @@ void healthDecay(int critical, int unsafe, int safe, int minimum, int critVal, i
     geiger[4] = geigerSet[0][4];
   }
 
-  decaySlope[0] = ( (safeVal / minimum) - (safeVal / critVal) ) / (geigerSet[0][4] - critical);
-  decaySlope[1] = ( (safeVal / critVal) - (safeVal / unsVal) ) / (critical - unsVal);
-  decaySlope[2] = ( (safeVal / unsVal) - 1 ) / (unsVal - safeVal);
+  decaySlope[0] = ((safeVal / minimum) - (safeVal / critVal)) / (geigerSet[0][4] - critical);
+  decaySlope[1] = ((safeVal / critVal) - (safeVal / unsVal)) / (critical - unsVal);
+  decaySlope[2] = ((safeVal / unsVal) - 1) / (unsVal - safeVal);
 
-  if(geiger[4] > critical) {
-    decayTicker = decayTicker + decaySlope[0]*(geiger[4] - geigerSet[0][4]) + (safeVal / minimum) ;
-  } else if(geiger[4] > unsafe) {
-    decayTicker = decayTicker + decaySlope[1]*(geiger[4] - critical) + (safeVal / critVal) ;
-  } else if(geiger[4] > safe) {
-    decayTicker = decayTicker + decaySlope[2]*(geiger[4] - unsVal) + (safeVal / unsVal) ;
+  if (geiger[4] > critical) {
+    decayTicker = decayTicker + decaySlope[0] * (geiger[4] - geigerSet[0][4]) + (safeVal / minimum);
+  } else if (geiger[4] > unsafe) {
+    decayTicker = decayTicker + decaySlope[1] * (geiger[4] - critical) + (safeVal / critVal);
+  } else if (geiger[4] > safe) {
+    decayTicker = decayTicker + decaySlope[2] * (geiger[4] - unsVal) + (safeVal / unsVal);
   }
 
-  if(decayTicker > safeVal*(1000 / intervalDecay)/100 ){
+  if (decayTicker > safeVal * (1000 / intervalDecay) / 100) {
     HP--;
-    Serial.print("Lost 1 HP, currently at: ");  Serial.print((int)HP);  Serial.println(" HP total");
+    Serial.print("Lost 1 HP, currently at: ");
+    Serial.print((int)HP);
+    Serial.println(" HP total");
     decayTicker = 0;
   }
 }
 
+void checkIfDead() {
+  if (HP <= 0) {
+    HP = 0;
+    alive = false;
+    Serial.println("YOU DIED");
+  }
+}
 
 /*************** RFM69HW-related functions */
 
 void geigerRF() {
- if (rf69.available()) {
+  if (rf69.available()) {
     // Should be a message for us now
     uint8_t buf[RH_RF69_MAX_MESSAGE_LEN];
     uint8_t len = sizeof(buf);
@@ -201,7 +224,7 @@ void geigerRF() {
       Serial.print(geiger[4], DEC);
     } else {
       Serial.println("Receive failed");
-      geiger[4] = geigerSet[1][4]; //set to lowest value
+      geiger[4] = geigerSet[1][4];  //set to lowest value
     }
   }
 }
@@ -214,14 +237,14 @@ int movingAverage(int input_val) {
 
   readIndex++;
   if (readIndex >= numReadings) {
-    readIndex = 0; 
+    readIndex = 0;
   }
 
   int average = total / numReadings;
-  return average; 
+  return average;
 }
 
-void buzzer() { //
+void buzzer() {  //
   if (millis() - previousMillisRF >= intervalRF) {
 
     //limit the signal values if they go out of defined bounds
@@ -231,11 +254,11 @@ void buzzer() { //
       geiger[4] = geigerSet[0][4];
     }
     signalNorm = geiger[4] - geigerSet[1][4];
-    geiger[3] = (geigerSlope[3])*signalNorm + geigerSet[1][3];
-    geiger[2] = (geigerSlope[2])*signalNorm + geigerSet[1][2];
-    geiger[1] = (geigerSlope[1])*signalNorm + geigerSet[1][1];
-    geiger[0] = (geigerSlope[0])*signalNorm + geigerSet[1][0]; 
-    randNumber = random(1, geiger[3]); // Generate a random number in the interval
+    geiger[3] = (geigerSlope[3]) * signalNorm + geigerSet[1][3];
+    geiger[2] = (geigerSlope[2]) * signalNorm + geigerSet[1][2];
+    geiger[1] = (geigerSlope[1]) * signalNorm + geigerSet[1][1];
+    geiger[0] = (geigerSlope[0]) * signalNorm + geigerSet[1][0];
+    randNumber = random(1, geiger[3]);  // Generate a random number in the interval
 
     // Ensure the random number is within the desired range
     if (randNumber > geiger[0] && randNumber < geiger[1]) {
@@ -245,20 +268,19 @@ void buzzer() { //
     }
 
     if (randNumber <= geiger[0]) {
-    // Play a click sound
-      tone(PIEZO_PIN, 510); // Adjust the frequency as needed
+      // Play a click sound
+      tone(PIEZO_PIN, 510);  // Adjust the frequency as needed
       delay(10);
       noTone(PIEZO_PIN);
     } else {
-      tone(PIEZO_PIN, 500); // Adjust the frequency as needed
+      tone(PIEZO_PIN, 500);  // Adjust the frequency as needed
       delay(10);
       noTone(PIEZO_PIN);
     }
-  
+
     previousMillisRF = millis();
     intervalRF = randNumber;
   }
-   
 }
 
 
@@ -316,25 +338,49 @@ void geigerRFID() {
             Serial.print("\n");
             Serial.println("Healing kit empty.");
           }
+        } else if (blockData[4] == 0x02) {
+          //heal without wiping the item
+          heal((int)blockData[5]);
+        } else if (blockData[4] == 0x03) {
+          //res with item wipe
+          if (blockData[5] > 0x00) {
+            healAmount = (int)blockData[5];
+            //if healing item sucessfully emptied, heal for the correct amount
+            if (wipeItem(blockData)) {
+              alive = true;
+              heal(healAmount);
+            }
+            healAmount = 0;
+          } else {
+            //***indicate empty
+            Serial.print("\n");
+            Serial.println("Healing kit empty.");
+          }
+        } else if (blockData[4] == 0x04) {
+          //res without item wipe
+          alive = true;
+          heal((int)blockData[5]);
         }
+        Serial.print("\n");
+        Serial.println("RFID tick");
+        mfrc522.PICC_HaltA();
+        mfrc522.PCD_StopCrypto1();
       }
-      Serial.print("\n");
-      Serial.println("RFID tick");
-      mfrc522.PICC_HaltA();
-      mfrc522.PCD_StopCrypto1();
     }
   }
 }
 
 void heal(int healAmount) {
-  if (HP + healAmount > 100) {
-    HP = 100;
-  } else {
-    HP = HP + healAmount;
+  if (alive) {
+    if (HP + healAmount > 100) {
+      HP = 100;
+    } else {
+      HP = HP + healAmount;
+    }
+    healAmount = 0;
+    Serial.print("\n");
+    Serial.println("**Healing applied**");
   }
-  healAmount = 0;
-  Serial.print("\n");
-  Serial.println("**Healing applied**");
 }
 
 void WriteDataToBlock(int blockNum, byte blockData[]) {
