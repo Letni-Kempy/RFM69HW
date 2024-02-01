@@ -273,6 +273,10 @@ void diodes() {
   }
 }
 
+void warningBlink(int count) {
+  warningCount = count * 2;
+}
+
 void blink(int state) {
   if (state == LOW) {
     state = HIGH;
@@ -394,6 +398,7 @@ void geigerRFID() {
           if (blockData[i] != header[i]) {
             Serial.print("\n");
             Serial.println("Not a LARP card.");
+            warningBlink(10);
             mfrc522.PICC_HaltA();
             mfrc522.PCD_StopCrypto1();
             return;
@@ -412,6 +417,7 @@ void geigerRFID() {
             //***indicate empty
             Serial.print("\n");
             Serial.println("Healing kit empty.");
+            warningBlink(3);
           }
         } else if (blockData[4] == 0x02) {
           //heal without wiping the item
@@ -430,18 +436,19 @@ void geigerRFID() {
             //***indicate empty
             Serial.print("\n");
             Serial.println("Healing kit empty.");
+            warningBlink(3);
           }
         } else if (blockData[4] == 0x04) {
           //res without item wipe
           alive = true;
           heal((int)blockData[5]);
         }
-        Serial.print("\n");
-        Serial.println("RFID tick");
-        mfrc522.PICC_HaltA();
-        mfrc522.PCD_StopCrypto1();
       }
     }
+    Serial.print("\n");
+    Serial.println("RFID tick");
+    mfrc522.PICC_HaltA();
+    mfrc522.PCD_StopCrypto1();
   }
 }
 
@@ -487,6 +494,7 @@ bool wipeItem(byte blockData[]) {
   if (status != MFRC522::STATUS_OK) {
     Serial.print("Authentication failed for Write: ");
     Serial.println(mfrc522.GetStatusCodeName(status));
+    warningBlink(5);
     return false;
   } else {
     Serial.println("Authentication success");
@@ -498,6 +506,7 @@ bool wipeItem(byte blockData[]) {
   if (status != MFRC522::STATUS_OK) {
     Serial.print("Writing to Block failed: ");
     Serial.println(mfrc522.GetStatusCodeName(status));
+    warningBlink(5);
     return false;
   } else {
     Serial.println("Data was written into Block successfully");
@@ -512,6 +521,7 @@ bool ReadDataFromBlock(int blockNum, byte readBlockData[]) {
   if (status != MFRC522::STATUS_OK) {
     Serial.print("Authentication failed for Read: ");
     Serial.println(mfrc522.GetStatusCodeName(status));
+    warningBlink(5);
     return false;
   } else {
     Serial.println("Authentication success");
@@ -526,6 +536,7 @@ bool ReadDataFromBlock(int blockNum, byte readBlockData[]) {
     dump_byte_array(readBlockData, 16);
     Serial.println();
     Serial.println();
+    warningBlink(5);
 
     return false;
   } else {
