@@ -62,6 +62,16 @@ MFRC522::StatusCode status;
 
 unsigned long previousMillisRFID = 0;
 
+//****** General ***************************************
+#define LED1 5  //status diode
+#define LED2 6  //death indicator
+#define LED3 7  //health diode 1
+#define LED4 8  //health diode 2
+int ledState[4] = { LOW, LOW, HIGH, HIGH };
+unsigned long previousMillisWarning = 0;
+unsigned long previousMillisHP = 0;
+int warningCount = 0;
+
 int healAmount = 0;
 int HP = 100;
 bool alive = true;
@@ -135,6 +145,16 @@ void setup() {
   for (byte i = 0; i < 6; i++) {
     key.keyByte[i] = 0xFF;
   }
+
+  /*************** Initialize status diodes */
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(LED3, OUTPUT);
+  pinMode(LED4, OUTPUT);
+  digitalWrite(LED1, ledState[0]);
+  digitalWrite(LED2, ledState[1]);
+  digitalWrite(LED3, ledState[2]);
+  digitalWrite(LED4, ledState[3]);
 }
 
 void loop() {
@@ -148,10 +168,15 @@ void loop() {
     }
     //imitate geiger sounds
     buzzer();
+    checkIfDead();
   }
   //check for RFID tags and resolve them
   geigerRFID();
 
+  //update the status LEDs
+  diodes();
+
+  //unfuck RFID periodically
   if (millis() - previousMillisRFID >= 10000) {
     digitalWrite(RST_PIN, LOW);
     // manual reset
@@ -164,8 +189,6 @@ void loop() {
 
     previousMillisRFID = millis();
   }
-
-  checkIfDead();
 }
 
 void healthDecay(int critical, int unsafe, int safe, int minimum, int critVal, int unsVal, int safeVal) {
@@ -203,6 +226,58 @@ void checkIfDead() {
     HP = 0;
     alive = false;
     Serial.println("YOU DIED");
+  }
+}
+
+void diodes() {
+  if (warningCount > 0) {
+    if (millis() - previousMillisWarning >= 500) {
+      blink(ledState[0]);
+      warningCount--;
+      digitalWrite(LED1, ledState[0]);
+      previousMillisWarning = millis();
+    }
+  }
+  if (alive) {
+    if (millis() - previousMillisHP >= 500) {
+      if (HP >= 80) {
+        ledState[3] = HIGH;
+        ledState[2] = HIGH;
+        ledState[1] = LOW;
+      } else if (HP >= 60) {
+        blink(ledState[3]);
+        ledState[2] = HIGH;
+        ledState[1] = LOW;
+      } else if (HP >= 40) {
+        ledState[3] = LOW;
+        ledState[2] = HIGH;
+        ledState[1] = LOW;
+      } else if (HP >= 20) {
+        ledState[3] = LOW;
+        blink(ledState[2]);
+        ledState[1] = LOW;
+      } else if (HP > 0) {
+        ledState[3] = LOW;
+        ledState[2] = LOW;
+        blink(ledState[1]);
+      }
+      digitalWrite(LED2, ledState[1]);
+      digitalWrite(LED3, ledState[2]);
+      digitalWrite(LED4, ledState[3]);
+      previousMillisHP = millis();
+    }
+  } else {
+    ledState[3] = LOW;
+    ledState[2] = LOW;
+    ledState[1] = HIGH;
+  }
+}
+
+void blink(int state) {
+  if (state == LOW) {
+    state = HIGH;
+  } else {
+    state = LOW;
   }
 }
 
