@@ -178,15 +178,16 @@ void loop() {
 
   //unfuck RFID periodically
   if (millis() - previousMillisRFID >= 10000) {
-    digitalWrite(RST_PIN, LOW);
+    /* digitalWrite(RST_PIN, LOW);
     // manual reset
     digitalWrite(RST_PIN, HIGH);
     delay(10);
     digitalWrite(RST_PIN, LOW);
-    delay(10);
+    delay(10); */
     mfrc522.PCD_Init();
     Serial.println("reset");
-
+    ledState[0] = LOW;
+    digitalWrite(LED1, ledState[0]);
     previousMillisRFID = millis();
   }
 }
@@ -232,9 +233,8 @@ void checkIfDead() {
 void diodes() {
   if (warningCount > 0) {
     if (millis() - previousMillisWarning >= 500) {
-      blink(ledState[0]);
+      blink(0);
       warningCount--;
-      digitalWrite(LED1, ledState[0]);
       previousMillisWarning = millis();
     }
   }
@@ -245,7 +245,7 @@ void diodes() {
         ledState[2] = HIGH;
         ledState[1] = LOW;
       } else if (HP >= 60) {
-        blink(ledState[3]);
+        blink(3);
         ledState[2] = HIGH;
         ledState[1] = LOW;
       } else if (HP >= 40) {
@@ -254,16 +254,15 @@ void diodes() {
         ledState[1] = LOW;
       } else if (HP >= 20) {
         ledState[3] = LOW;
-        blink(ledState[2]);
+        blink(2);
         ledState[1] = LOW;
       } else if (HP > 0) {
         ledState[3] = LOW;
         ledState[2] = LOW;
-        blink(ledState[1]);
+        blink(1);
       }
-      digitalWrite(LED2, ledState[1]);
-      digitalWrite(LED3, ledState[2]);
-      digitalWrite(LED4, ledState[3]);
+
+
       previousMillisHP = millis();
     }
   } else {
@@ -271,17 +270,21 @@ void diodes() {
     ledState[2] = LOW;
     ledState[1] = HIGH;
   }
+  digitalWrite(LED1, ledState[0]);
+  digitalWrite(LED2, ledState[1]);
+  digitalWrite(LED3, ledState[2]);
+  digitalWrite(LED4, ledState[3]);
 }
 
 void warningBlink(int count) {
   warningCount = count * 2;
 }
 
-void blink(int state) {
-  if (state == LOW) {
-    state = HIGH;
+int blink(int index) {
+  if (ledState[index] == LOW) {
+    ledState[index] = HIGH;
   } else {
-    state = LOW;
+    ledState[index] = LOW;
   }
 }
 
