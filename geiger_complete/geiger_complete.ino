@@ -67,14 +67,21 @@ unsigned long previousMillisRFID = 0;
 #define LED2 6  //death indicator
 #define LED3 7  //health diode 1
 #define LED4 8  //health diode 2
+
+
 int ledState[4] = { LOW, LOW, HIGH, HIGH };
 unsigned long previousMillisWarning = 0;
 unsigned long previousMillisHP = 0;
 int warningCount = 0;
+int healCount = 0;
 
 int healAmount = 0;
 int HP = 100;
 bool alive = true;
+
+#define ButtonRFID A1  //button to enable RFID reading
+bool RFID_flag = false;
+bool RFID_init = false;
 
 void setup() {
   /* Initialize serial communications with the PC */
@@ -155,9 +162,12 @@ void setup() {
   digitalWrite(LED2, ledState[1]);
   digitalWrite(LED3, ledState[2]);
   digitalWrite(LED4, ledState[3]);
+
+  pinMode(ButtonRFID, INPUT);
 }
 
 void loop() {
+  RFID_flag = digitalRead(ButtonRFID);  //check if the button is pressed
   if (alive) {
     //check signal strength
     geigerRF();
@@ -167,29 +177,31 @@ void loop() {
       previousMillisDecay = millis();
     }
     //imitate geiger sounds
-    buzzer();
+    if (!RFID_flag) {
+      buzzer();
+    }
     checkIfDead();
   }
   //check for RFID tags and resolve them
-  geigerRFID();
-
+  if (RFID_flag) {
+    /*   if (RFID_init) {
+      mfrc522.PCD_Init();
+      Serial.println("reset");
+      RFID_init = false;
+    } */
+    geigerRFID();
+    /*  } else {
+    RFID_init = true; */
+  }
   //update the status LEDs
   diodes();
-
-  //unfuck RFID periodically
+  /*
+  //unfuck status LED periodically
   if (millis() - previousMillisRFID >= 10000) {
-    /* digitalWrite(RST_PIN, LOW);
-    // manual reset
-    digitalWrite(RST_PIN, HIGH);
-    delay(10);
-    digitalWrite(RST_PIN, LOW);
-    delay(10); */
-    mfrc522.PCD_Init();
-    Serial.println("reset");
     ledState[0] = LOW;
     digitalWrite(LED1, ledState[0]);
     previousMillisRFID = millis();
-  }
+  } */
 }
 
 void healthDecay(int critical, int unsafe, int safe, int minimum, int critVal, int unsVal, int safeVal) {
@@ -237,29 +249,33 @@ void diodes() {
       warningCount--;
       previousMillisWarning = millis();
     }
+  } else {
+    ledState[0] = LOW;
   }
+
   if (alive) {
     if (millis() - previousMillisHP >= 500) {
       if (HP >= 80) {
         ledState[3] = HIGH;
         ledState[2] = HIGH;
-        ledState[1] = LOW;
       } else if (HP >= 60) {
         blink(3);
         ledState[2] = HIGH;
-        ledState[1] = LOW;
       } else if (HP >= 40) {
         ledState[3] = LOW;
         ledState[2] = HIGH;
-        ledState[1] = LOW;
       } else if (HP >= 20) {
         ledState[3] = LOW;
         blink(2);
-        ledState[1] = LOW;
       } else if (HP > 0) {
         ledState[3] = LOW;
         ledState[2] = LOW;
+      }
+      if (healCount > 0 || HP <= 20) {
         blink(1);
+        healCount--;
+      } else {
+        ledState[1] = LOW;
       }
 
 
@@ -370,89 +386,96 @@ void buzzer() {  //
 void geigerRFID() {
   /* Look for new cards */
   /* Reset the loop if no new card is present on RC522 Reader */
-  if (mfrc522.PICC_IsNewCardPresent()) {
 
-    /* Select one of the cards */
-    if (mfrc522.PICC_ReadCardSerial()) {
+  mfrc522.PCD_Init();
+  delay(10);
 
-      Serial.print("\n");
-      Serial.println("**Card Detected**");
-      /* Print UID of the Card */
-      Serial.print(F("Card UID:"));
-      for (byte i = 0; i < mfrc522.uid.size; i++) {
-        Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-        Serial.print(mfrc522.uid.uidByte[i], HEX);
-      }
-      Serial.print("\n");
-      /* Print type of card (for example, MIFARE 1K) */
-      Serial.print(F("PICC type: "));
-      MFRC522::PICC_Type piccType = mfrc522.PICC_GetType(mfrc522.uid.sak);
-      Serial.println(mfrc522.PICC_GetTypeName(piccType));
+  if (!mfrc522.PICC_IsNewCardPresent()) {
+    return;
+  }
 
-      int blockNum = 1;
-      byte readBlockData[18];
-      bufferLen = 18;
-      byte blockData[16];
-      if (ReadDataFromBlock(blockNum, readBlockData)) {
-        copy(readBlockData, blockData, 16);
+  /* Select one of the cards */
+  if (!mfrc522.PICC_ReadCardSerial()) {
+    return;
+  }
 
-        //check if RFID has correct header
-        for (int i = 0; i < 4; i++) {
-          if (blockData[i] != header[i]) {
-            Serial.print("\n");
-            Serial.println("Not a LARP card.");
-            warningBlink(10);
-            mfrc522.PICC_HaltA();
-            mfrc522.PCD_StopCrypto1();
-            return;
-          }
-        }
-        //check if the item is a healing item, apply heal if it is
-        if (blockData[4] == 0x01) {
-          if (blockData[5] > 0x00) {
-            healAmount = (int)blockData[5];
-            //if healing item sucessfully emptied, heal for the correct amount
-            if (wipeItem(blockData)) {
-              heal(healAmount);
-            }
-            healAmount = 0;
-          } else {
-            //***indicate empty
-            Serial.print("\n");
-            Serial.println("Healing kit empty.");
-            warningBlink(3);
-          }
-        } else if (blockData[4] == 0x02) {
-          //heal without wiping the item
-          heal((int)blockData[5]);
-        } else if (blockData[4] == 0x03) {
-          //res with item wipe
-          if (blockData[5] > 0x00) {
-            healAmount = (int)blockData[5];
-            //if healing item sucessfully emptied, heal for the correct amount
-            if (wipeItem(blockData)) {
-              alive = true;
-              heal(healAmount);
-            }
-            healAmount = 0;
-          } else {
-            //***indicate empty
-            Serial.print("\n");
-            Serial.println("Healing kit empty.");
-            warningBlink(3);
-          }
-        } else if (blockData[4] == 0x04) {
-          //res without item wipe
-          alive = true;
-          heal((int)blockData[5]);
-        }
+  Serial.print("\n");
+  Serial.println("**Card Detected**");
+  /* Print UID of the Card */
+  Serial.print(F("Card UID:"));
+  for (byte i = 0; i < mfrc522.uid.size; i++) {
+    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
+    Serial.print(mfrc522.uid.uidByte[i], HEX);
+  }
+  Serial.print("\n");
+  /* Print type of card (for example, MIFARE 1K) */
+  Serial.print(F("PICC type: "));
+  MFRC522::PICC_Type piccType = mfrc522.PICC_GetType(mfrc522.uid.sak);
+  Serial.println(mfrc522.PICC_GetTypeName(piccType));
+
+  int blockNum = 1;
+  byte readBlockData[18];
+  bufferLen = 18;
+  byte blockData[16];
+  if (ReadDataFromBlock(blockNum, readBlockData)) {
+    copy(readBlockData, blockData, 16);
+
+    //check if RFID has correct header
+    for (int i = 0; i < 4; i++) {
+      if (blockData[i] != header[i]) {
+        Serial.print("\n");
+        Serial.println("Not a LARP card.");
+        warningBlink(10);
+        mfrc522.PICC_HaltA();
+        mfrc522.PCD_StopCrypto1();
+        return;
       }
     }
-    Serial.print("\n");
-    Serial.println("RFID tick");
-    mfrc522.PICC_HaltA();
-    mfrc522.PCD_StopCrypto1();
+    //check if the item is a healing item, apply heal if it is
+    if (blockData[4] == 0x01) {
+      if (blockData[5] > 0x00) {
+        healAmount = (int)blockData[5];
+        //if healing item sucessfully emptied, heal for the correct amount
+        if (wipeItem(blockData)) {
+          heal(healAmount);
+        }
+        healAmount = 0;
+      } else {
+        //***indicate empty
+        Serial.print("\n");
+        Serial.println("Healing kit empty.");
+        warningBlink(3);
+      }
+    } else if (blockData[4] == 0x02) {
+      //heal without wiping the item
+      heal((int)blockData[5]);
+    } else if (blockData[4] == 0x03) {
+      //res with item wipe
+      if (blockData[5] > 0x00) {
+        healAmount = (int)blockData[5];
+        //if healing item sucessfully emptied, heal for the correct amount
+        if (wipeItem(blockData)) {
+          alive = true;
+          heal(healAmount);
+        }
+        healAmount = 0;
+      } else {
+        //***indicate empty
+        Serial.print("\n");
+        Serial.println("Healing kit empty.");
+        warningBlink(3);
+      }
+    } else if (blockData[4] == 0x04) {
+      //res without item wipe
+      alive = true;
+      heal((int)blockData[5]);
+    }
   }
+  delay(50);
+  Serial.print("\n");
+  Serial.println("RFID tick");
+  mfrc522.PICC_HaltA();
+  mfrc522.PCD_StopCrypto1();
 }
 
 void heal(int healAmount) {
@@ -463,6 +486,7 @@ void heal(int healAmount) {
       HP = HP + healAmount;
     }
     healAmount = 0;
+    healCount = 10;
     Serial.print("\n");
     Serial.println("**Healing applied**");
   }
