@@ -8,7 +8,7 @@
 #define RF69_FREQ 433.0
 #define PIEZO_PIN 2   //buzzer pin
 #define RFM69_SS 9    //slave select - NSS
-#define RFM69_INT 3   //interrupt pin
+#define RFM69_INT 3   //interrupt pin - DI00
 #define RFM69_RST A0  // "A" reset, set to analog to preserve DIO pins
 #define LED 13
 //SCK to pin D13
@@ -24,7 +24,7 @@ int readIndex = 0;
 long total = -1000;  //sum of readings array
 
 double signalNorm;
-int geiger[5] = { 300, 500, 2500, 3000, -40 };
+int geiger[5] = { 300, 500, 2500, 3000, -100 };
 //geigerSet[2][4] = {{fastest irregular interval, fast beep limit, slow beep limit, end of rng band(affects probability distribution), max signal strength[dBm]} , {repeat for far signal}}
 int geigerSet[2][5] = { { 5, 10, 20, 25, -40 }, { 300, 500, 2500, 3000, -100 } };
 //define the linear functions between the two extreme beeping speeds

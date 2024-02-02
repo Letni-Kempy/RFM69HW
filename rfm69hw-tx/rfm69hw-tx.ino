@@ -5,10 +5,14 @@
 
 // Change to 434.0 or other frequency, must match RX's freq!
 #define RF69_FREQ 433.0
-#define RFM69_CS    4  //
-#define RFM69_INT   3  //
-#define RFM69_RST   2  // "A"
-#define LED        13
+#define PIEZO_PIN 2   //buzzer pin
+#define RFM69_SS 53    //slave select - NSS - D9 or 53
+#define RFM69_INT 3   //interrupt pin - DI00
+#define RFM69_RST A0  // "A" reset, set to analog to preserve DIO pins
+#define LED 13
+//SCK to pin D13 or 52
+//MISO to pin D12 or 50
+//MOSI to pin D11 or 51
 
 // ESP8266 feather w/wing
 //  #define RFM69_CS    2  // "E"
@@ -16,11 +20,11 @@
 //  #define RFM69_RST  16  // "D"
 //  #define LED         0
 
-RH_RF69 rf69(RFM69_CS, RFM69_INT);
+RH_RF69 rf69(RFM69_SS, RFM69_INT);
 int16_t packetnum = 0;  // packet counter, we increment per xmission
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   //while (!Serial) delay(1); // Wait for Serial Console (comment out line if no computer)
 
   pinMode(LED, OUTPUT);
