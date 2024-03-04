@@ -5,7 +5,7 @@
 
 // Change to 434.0 or other frequency, must match RX's freq!
 #define RF69_FREQ 433.0
-#define RFM69_SS 9    //slave select - NSS - 9 or 53
+#define RFM69_SS 53    //slave select - NSS - 9 or 53
 #define RFM69_INT 3   //interrupt pin - DI00
 #define RFM69_RST 2  // "A" reset, set to analog to preserve DIO pins
 #define LED 13
