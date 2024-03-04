@@ -26,7 +26,7 @@ long total = -1000;  //sum of readings array
 double signalNorm;
 int geiger[5] = { 300, 500, 2500, 3000, -100 };
 //geigerSet[2][4] = {{fastest irregular interval, fast beep limit, slow beep limit, end of rng band(affects probability distribution), max signal strength[dBm]} , {repeat for far signal}}
-int geigerSet[2][5] = { { 5, 10, 20, 25, -30 }, { 300, 500, 2500, 3000, -70 } };
+int geigerSet[2][5] = { { 5, 10, 20, 25, -40 }, { 300, 500, 2500, 3000, -100 } };
 //define the linear functions between the two extreme beeping speeds
 double geigerSlope[5];
 int randNumber = random(11, geiger[3]);  // Generate a random number in the interval [50, 500]
@@ -116,9 +116,10 @@ void setup() {
   // If you are using a high power RF69 eg RFM69HW, you *must* set a Tx power with the
   // ishighpowermodule flag set like this:
   rf69.setTxPower(20, true);  // range from 14-20 for power, 2nd arg must be true for 69HCW
+  rf69.setModemConfig(RH_RF69::GFSK_Rb9_6Fd19_2);
 
   // The encryption key has to be the same as the one in the server
-  uint8_t keyRF[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+  uint8_t keyRF[] = { 0x4C, 0x41, 0x52, 0x50, 0x05, 0x06, 0x07, 0x08,
                       0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
   rf69.setEncryptionKey(keyRF);
 
